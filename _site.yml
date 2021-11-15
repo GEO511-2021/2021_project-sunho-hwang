@@ -1,7 +1,7 @@
 output_dir: 'docs'
 output:
   html_document:
-    theme: simplex  # choose your theme here: https://bootswatch.com/
+    theme: minty  # choose your theme here: https://bootswatch.com/
     highlight: textmate
     mathjax: null
     toc: true
@@ -14,87 +14,9 @@ output:
       after_body: include/after_body.html
     css: styles.css
     keep_md: false
-    first project website
+    Who is into Green Infrastructure?
     
     
-    ---
-title: "Who is into Green Infrastructure?"
-author: Sun Ho Hwang
-subtititle: Motivation of Green Infrastructure Parcipation
----
-
-# Introduction
-
- Due to global warming, one of the difficulties that the urban
-environment face is the increase of precipitation. There is a chance
-that this will lead to water pollution as the stormwater that runs
-through the urban impervious surface collects pollutants and enters the
-sewer system. There has been continuous effort to implement green
-infrastructure to adapt to this environmental change. However there are
-certain limits because this involves the voluntary participation of
-individual households. This study will help understand the motivation of the participants of the past rain barrel project and help
-guide environmental organizations to plan how to increase participation.
-
-This project will analyze the motivation of households participating in the rain barrel project bby comparing contributing factors which are the education attainment and median income at the census tract level. The education attainment and income of the people participating in this project will be represented as a map. Then the shapefile of the rain barrels will be overlapped in order to analyze the demographic characteristic of households participating in the project. 
 
 
 
-
-Load any required packages in a code chunk (you may need to install some packages):
-
-```{r, message=F, warning=F}
-library(acs)
-install.packages("choroplethr")
-library(choroplethr)
-library(ggplot2)
-library(choroplethrMaps)
-library(ggmap)
-install.packages("mapproj")
-library(mapproj)
-library(maps)
-library(kableExtra)
-knitr::opts_chunk$set(cache=TRUE)  # cache the results for quick compiling
-```
-
-## Download and clean all required data
-```{r}
-
-#register your api key
-#use personal account not ub gmail account
-register_google("< AIzaSyDKWjMtKISTGUyr4aw9AnVbRu5blAPDnlE >")
-
-
-#1.Income map
-
-
-#census tract level for Income, choroplethr
-?df_ny_tract_demographics
-#check data
-data("df_ny_tract_demographics")
-View(df_ny_tract_demographics)
-#make value column value
-df_ny_tract_demographics$value=df_ny_tract_demographics$per_capita_income
-#create a choropleth map
-
-tract_choropleth(df_ny_tract_demographics,state_name = "new york" ,title="Per Capita Income Estimates",legend = "Dollars",num_colors = 7)
-
-#state names
-
-?state.regions
-data("state.regions")
-View(state.regions)
-
-#But we have to frame it
-
-
-#Problem: location and time frame
-#set area to Buffalo city, year should include 2015 and 2016
-#area:leave and overlap with shapefile later
-
-#Problem1: how about time frame?
-#Problem2: data for Buffalo missing? How should I deal with missing values?
-#maybe try again with tidycensus
-#https://walker-data.com/tidycensus/articles/basic-usage.html
-
-
-```
