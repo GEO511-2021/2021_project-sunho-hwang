@@ -1,7 +1,7 @@
 ---
-title: "Who is into Green Infrastructure?"
+title: "Who is into Green Infrastructure"
 author: Sun Ho Hwang
-subtititle: Motivation of Green Infrastructure Parcipation
+subtititle: Motivation of Green Infrastructure Participation
 ---
 
 # Introduction
@@ -13,38 +13,12 @@ through the urban impervious surface collects pollutants and enters the
 sewer system. There has been continuous effort to implement green
 infrastructure to adapt to this environmental change. However there are
 certain limits because this involves the voluntary participation of
-individual households. This study will help understand the motivation of the participants of the past rain barrel project and help
-guide environmental organizations to plan how to increase participation.
-
-This project will analyze the motivation of households participating in the rain barrel project bby comparing contributing factors which are the education attainment and median income at the census tract level. The education attainment and income of the people participating in this project will be represented as a map. Then the shapefile of the rain barrels will be overlapped in order to analyze the demographic characteristic of households participating in the project. 
+individual households. This study will help understand the motivation of the participants of the past rain barrel project and help guide environmental organizations to plan how to increase participation.
+This project will analyze the motivation of households participating in the rain barrel project by comparing contributing factors which are the education attainment and median income at the census tract level. The education attainment and income of the people participating in this project will be represented as a map. Then the shapefile of the rain barrels will be overlapped in order to analyze the demographic characteristic of households participating in the project. 
 
 
 # Materials and methods
 
-[~ 200 words]
-
-Narrative: Clear narrative description of the data sources and methods. Includes data from at least two sources that were integrated / merged in R.
-
-Code: The code associated with the project is well organized and easy to follow. Demonstrates mastery of R graphics and functions.
-
-Data: The underlying data are publicly accessible via the web and downloaded/accessed within the Rmd script. If you want to use your own data, you must make it available on a website (e.g. Figshare) so that others are able to re-run your code.
-
-You can do bullets like this:
-
-* The first most important thing
-* The second most important thing
-* The third most important thing
-
-You can do numbers like this:
-
-1. The first most important thing
-2. The second most important thing
-3. The third most important thing
-
-See [http://rmarkdown.rstudio.com/](http://rmarkdown.rstudio.com/) for all the amazing things you can do.
-
-
-Here's my first code chunk.
 ```{r}
 1+2
 ```
@@ -61,6 +35,8 @@ library(ggmap)
 install.packages("mapproj")
 library(mapproj)
 library(maps)
+library(tidycensus)
+library(tidyverse)
 library(kableExtra)
 knitr::opts_chunk$set(cache=TRUE)  # cache the results for quick compiling
 ```
@@ -70,10 +46,10 @@ knitr::opts_chunk$set(cache=TRUE)  # cache the results for quick compiling
 
 #register your api key
 #use personal account not ub gmail account
-register_google("< AIzaSyDKWjMtKISTGUyr4aw9AnVbRu5blAPDnlE >")
+register_google("")
 
 
-#1.Income map
+#Income map
 
 
 #census tract level for Income, choroplethr
@@ -100,8 +76,8 @@ View(state.regions)
 #set area to Buffalo city, year should include 2015 and 2016
 #area:leave and overlap with shapefile later
 
-#Problem1: how about time frame?
-#Problem2: data for Buffalo missing? How should I deal with missing values?
+#Problem1.how about time frame?
+#Problem2.data for Buffalo missing? How should I deal with missing values?
 #maybe try again with tidycensus
 #https://walker-data.com/tidycensus/articles/basic-usage.html
 
@@ -117,12 +93,17 @@ data %>%
 
 
 #2 educational attainment
-#url: https://data.census.gov/cedsci/table?q=educational%20attainment&tid=ACSST5Y2019.S1501&hidePreview=true
-?get_acs_data()
-ed<-get_acs_data("S1501","county",endyear=2019,span=5,column_idx = )
 
+#get_acs() will be used.
 
-#how to figure out column_idx numbers
+#search for variables
+v1 <- load_variables(2019, "acs5", cache = TRUE)
+View(v1)
+#variable:B15003_001: total:educational attainment for population 25 years and older will be used
+
+#educational attainment data
+ed<-get_acs(geography="tract",variables=c(education="B15003_001"),state="NY",year=2019)
+
 
 ```
 
@@ -160,3 +141,6 @@ Clear summary adequately describing the results and putting them in context. Dis
 # References
 
 All sources are cited in a consistent manner
+
+
+
