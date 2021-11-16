@@ -1,4 +1,6 @@
----
+
+
+Load any required packages in a code chunk (you may need to install some packages):---
 title: "Who is into Green Infrastructure"
 author: Sun Ho Hwang
 subtititle: Motivation of Green Infrastructure Participation
@@ -23,8 +25,6 @@ This project will analyze the motivation of households participating in the rain
 1+2
 ```
 
-Load any required packages in a code chunk (you may need to install some packages):
-
 ```{r, message=F, warning=F}
 library(acs)
 install.packages("choroplethr")
@@ -47,6 +47,8 @@ knitr::opts_chunk$set(cache=TRUE)  # cache the results for quick compiling
 #register your api key
 #use personal account not ub gmail account
 register_google("")
+#census api key
+census_api_key("")
 
 
 #Income map
@@ -82,6 +84,51 @@ View(state.regions)
 #https://walker-data.com/tidycensus/articles/basic-usage.html
 
 
+#2 educational attainment
+
+#get_acs() will be used.
+
+#search for variables
+v1 <- load_variables(2019, "acs5", cache = TRUE)
+View(v1)
+#variable:B15003_001: total:educational attainment for population 25 years and older
+#variable: B15003_002 to B15003_025 will be used
+
+#educational attainment data only for total
+ed<-get_acs(geography="tract",variables=c(educationtotal="B15003_001"),county="Erie",state="NY",year=2019)
+
+view(ed)
+
+#We need to identify the variables we are willing to use and name it again to make it look better.
+
+get_vars = c('B19019_001',paste('B15003_',sprintf('%03d',c(1,17:25)),sep=''))
+names(get_vars) =  c('income','all','hs','ged','someco1','someco2',
+                     'as','bac','mas','prof','doc')
+
+edu_data = get_acs(geography = 'tract', variables = get_vars,
+                   state='NY',county='Erie',geometry='TRUE')
+
+#did I use the 5 year acs table? double check? yes
+
+as_tibble(edu_data) %>% select(-geometry)
+
+library(tidyverse)                     
+acs_spread = edu_data %>% 
+    select(-moe) %>% 
+    spread(key=variable,value=estimate) %>%
+    mutate('atleast_hs' = (hs + ged+ someco1 + someco2 + as + bac + mas + prof + doc) / all,
+           'atleast_bs' = (bac + mas + prof + doc) / all) %>%
+    select(GEOID,income,atleast_hs,atleast_bs)
+
+library(sf)
+library(ggplot2)
+
+thm = theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+          axis.text.y = element_blank(), axis.ticks.y = element_blank())
+
+#continuing...
+
+
 ```
 
 ```{r, results='asis'}
@@ -91,18 +138,6 @@ data %>%
   kable_styling(bootstrap_options = 
                   c("striped", "hover", "condensed", "responsive")) #apply other formatting
 
-
-#2 educational attainment
-
-#get_acs() will be used.
-
-#search for variables
-v1 <- load_variables(2019, "acs5", cache = TRUE)
-View(v1)
-#variable:B15003_001: total:educational attainment for population 25 years and older will be used
-
-#educational attainment data
-ed<-get_acs(geography="tract",variables=c(education="B15003_001"),state="NY",year=2019)
 
 
 ```
