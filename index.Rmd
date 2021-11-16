@@ -1,6 +1,5 @@
 
-
-Load any required packages in a code chunk (you may need to install some packages):---
+---
 title: "Who is into Green Infrastructure"
 author: Sun Ho Hwang
 subtititle: Motivation of Green Infrastructure Participation
