@@ -92,14 +92,17 @@ View(state.regions)
 v1 <- load_variables(2019, "acs5", cache = TRUE)
 View(v1)
 #variable:B15003_001: total:educational attainment for population 25 years and older
-#variable: B15003_002 to B15003_025 will be used
+#variable: B15003_001,  B15003_017 to B15003_025 will be used
+
+#test
 
 #educational attainment data only for total
 ed<-get_acs(geography="tract",variables=c(educationtotal="B15003_001"),county="Erie",state="NY",year=2019)
 
 view(ed)
 
-#We need to identify the variables we are willing to use and name it again to make it look better.
+#We need to identify the variables we are willing to use and name it again to make it understandable.
+#B19019_001 will be later used for median income. This represents the total of median household income by household size. 
 
 get_vars = c('B19019_001',paste('B15003_',sprintf('%03d',c(1,17:25)),sep=''))
 names(get_vars) =  c('income','all','hs','ged','someco1','someco2',
@@ -112,6 +115,8 @@ edu_data = get_acs(geography = 'tract', variables = get_vars,
 
 as_tibble(edu_data) %>% select(-geometry)
 
+#classify education attainment to at least hight school and at least bachelor degree
+
 library(tidyverse)                     
 acs_spread = edu_data %>% 
     select(-moe) %>% 
@@ -120,13 +125,9 @@ acs_spread = edu_data %>%
            'atleast_bs' = (bac + mas + prof + doc) / all) %>%
     select(GEOID,income,atleast_hs,atleast_bs)
 
-library(sf)
-library(ggplot2)
 
-thm = theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
-          axis.text.y = element_blank(), axis.ticks.y = element_blank())
 
-#continuing...
+#Continuing..
 
 
 ```
