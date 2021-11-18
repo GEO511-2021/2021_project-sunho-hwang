@@ -48,7 +48,7 @@ census_api_key("de66b80e57fd740d87d1af03c5c306086b4f17fa")
 #?df_ny_tract_demographics
 #check data
 data("df_ny_tract_demographics")
-View(df_ny_tract_demographics)
+#View(df_ny_tract_demographics)
 #make value column value
 df_ny_tract_demographics$value=df_ny_tract_demographics$per_capita_income
 #create a choropleth map
@@ -59,7 +59,7 @@ tract_choropleth(df_ny_tract_demographics,state_name = "new york" ,title="Per Ca
 
 #?state.regions
 data("state.regions")
-View(state.regions)
+
 
 #But we have to frame it
 
@@ -80,7 +80,7 @@ View(state.regions)
 
 #search for variables
 v1 <- load_variables(2019, "acs5", cache = TRUE)
-View(v1)
+#View(v1)
 #variable:B15003_001: total:educational attainment for population 25 years and older
 #variable: B15003_001,  B15003_017 to B15003_025 will be used
 
@@ -89,7 +89,7 @@ View(v1)
 #educational attainment data only for total
 ed<-get_acs(geography="tract",variables=c(educationtotal="B15003_001"),county="Erie",state="NY",year=2019)
 
-view(ed)
+#view(ed)
 
 #We need to identify the variables we are willing to use and name it again to make it understandable.
 #B19019_001 will be later used for median income. This represents the total of median household income by household size. 
