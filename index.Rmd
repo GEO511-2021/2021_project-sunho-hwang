@@ -38,7 +38,7 @@ library(kableExtra)
 #use personal account not ub gmail account
 register_google("")
 #census api key
-census_api_key("de66b80e57fd740d87d1af03c5c306086b4f17fa")
+census_api_key("")
 
 
 #Income map
