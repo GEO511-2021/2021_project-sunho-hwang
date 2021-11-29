@@ -41,7 +41,7 @@ register_google("")
 census_api_key("")
 
 
-#Income map
+#Income map 
 
 
 #census tract level for Income, choroplethr
