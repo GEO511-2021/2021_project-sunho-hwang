@@ -16,8 +16,8 @@ This project will analyze the motivation of households participating in the rain
 
 # Materials and methods
 ```{r, message=F, warning=F}
-#library(acs)
-#install.packages("base")
+library(acs)
+install.packages("base")
 library(choroplethr)
 library(ggplot2)
 library(choroplethrMaps)
@@ -38,40 +38,9 @@ library(kableExtra)
 #use personal account not ub gmail account
 register_google("")
 #census api key
-census_api_key("")
+census_api_key("de66b80e57fd740d87d1af03c5c306086b4f17fa")
 
 
-#Income map
-
-
-#census tract level for Income, choroplethr
-#?df_ny_tract_demographics
-#check data
-data("df_ny_tract_demographics")
-#View(df_ny_tract_demographics)
-#make value column value
-df_ny_tract_demographics$value=df_ny_tract_demographics$per_capita_income
-#create a choropleth map
-
-tract_choropleth(df_ny_tract_demographics,state_name = "new york" ,title="Per Capita Income Estimates",legend = "Dollars",num_colors = 7)
-
-#state names
-
-#?state.regions
-data("state.regions")
-
-
-#But we have to frame it
-
-
-#Problem: location and time frame
-#set area to Buffalo city, year should include 2015 and 2016
-#area:leave and overlap with shapefile later
-
-#Problem1.how about time frame?
-#Problem2.data for Buffalo missing? How should I deal with missing values?
-#maybe try again with tidycensus
-#https://walker-data.com/tidycensus/articles/basic-usage.html
 
 
 #2 educational attainment
@@ -143,6 +112,304 @@ Clear summary adequately describing the results and putting them in context. Dis
 # References
 
 All sources are cited in a consistent manner
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#20211208 new
+#download the rain barrel 2015 shapefile 
+
+library(sf)
+
+rb_2015<-st_read("C:/R_Project/RB1516/2015_completed_RBinstall.shp")
+
+
+#Projected CRS: NAD83 / New York West (ftUS)
+
+
+
+#pipe dataset to tibble
+
+library(tidyverse)
+
+rb_2015_t = st_read("C:/R_Project/RB1516/2015_completed_RBinstall.shp") %>% as_tibble()
+
+head(rb_2015_t)
+
+#tidy data
+#add count
+
+#new packages
+library(tidycensus)
+library(tidyverse)
+library(sf);library(ggplot2);library(raster) ;library(sp);library(GISTools)
+library(dplyr)
+library(rgdal)
+library(magrittr)
+library(lubridate)#date
+library(leaflet)
+library(spdep);library(rgdal);
+library(viridis)
+library(mapview)
+library(RColorBrewer)
+library(rgeos)
+
+
+
+
+
+
+
+
+
+
+
+
+
+#rb_2015_t%>%class() is tibble
+#rb_2015 is sf
+
+rb_2015%>%class()
+
+#census data
+#census_tract is sf
+
+census_tract<-st_read("C:/R_Project/2015_CensusTract")
+
+head(census_tract)
+
+census_tract%>%class()
+
+#count rb
+
+rb_2015%>%class()
+
+census_tract%>%class()
+
+#rb_2015_sp <-sp
+#rb_2015_t <-tbl
+
+rb_2015_df<-rb_2015_sp%>%as_tibble()
+
+coordinates(rb_2015_df) <- ~ Longitude+ Latitude
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+head(rb_2015_t)
+view(rb_2015_t)
+
+#https://gis.stackexchange.com/questions/110117/counting-number-of-points-in-polygon-using-r
+
+
+
+library("raster")
+
+library("sp")
+
+
+
+class(rb_2015)
+
+#convert sf to sp
+
+census_tract <-as(st_geometry(census_tract), "Spatial")
+
+
+
+#proj4string(rb_2015_sp)
+
+#Warning message:
+#In proj4string(rb_2015_sp) :
+#CRS object has comment, which is lost in output
+
+#https://cran.r-project.org/web/packages/sp/vignettes/CRS_warnings.html
+
+
+
+slot(rb_2015_df, "proj4string")
+
+slot(census_tract,"proj4string")
+
+slot(rb_2015_sp, "proj4string") <- crs(census_tract)
+
+
+tmp<-poly.counts(pts=rb_2015_t,polys = census_tract)
+
+#setNames(tmp,  NYC_nb@data$NAME_1)
+
+tmp_df <- data.frame(id = names(tmp), count = tmp)
+
+
+census_tract$count<- tmp
+
+mapview::mapview(census_tract ,zcol = "count")
+
+
+head(tmp_df)
+
+
+
+
+
+
+
+#census_tract only has GEOID No FIPs
+
+#convert latitude longitude to census tract or GEOID or fips
+
+#https://shiandy.com/post/2020/11/02/mapping-lat-long-to-fips/
+#reference:https://gis.stackexchange.com/questions/21533/api-to-reverse-geocode-latitude-longitude-to-census-tract
+
+
+
+n <- 1e5
+set.seed(7477263)
+county_bbox <- st_bbox(census_tracts)
+# randomly sample longitude and latitude from bounding box
+latlong_dat <- data.frame(id = seq_len(n),
+                          x = rnorm(n),
+                          Longitude = runif(n, min = county_bbox["xmin"],
+                                            max = county_bbox["xmax"]),
+                          Latitude = runif(n, min = county_bbox["ymin"],
+                                            max = county_bbox["ymax"]))
+
+
+
+latlong_sf <- latlong_dat %>%
+  filter(!is.na(Latitude), !is.na(Longitude)) %>%
+  st_as_sf(coords = c("Longitude", "Latitude"), crs = st_crs(census_tract))
+
+
+
+system.time({
+  intersected <- st_intersects(latlong_sf, census_tract)
+})
+
+
+latlong_final <- latlong_sf %>%
+  mutate(intersection = as.integer(intersected),
+         fips = if_else(is.na(intersection), "",
+                        census_tract$GEOID[intersection]))
+
+head(latlong_final)
+
+census_tract %>%
+  filter(startsWith(GEOID, "36029")) %>%
+  select(geometry) %>%
+  plot()
+latlong_final %>%
+  filter(fips == "36013036700") %>%
+  select(geometry) %>%
+  slice_sample(n = 10) %>%
+  plot(add = TRUE, reset = FALSE, pch = 16, col = "red")
+
+
+#count rain barrels per census tract
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# How many breaches of peace in each census block?
+#n.breach = poly.counts(breach,blocks)
+# Compute densities and map them
+#choropleth(blocks,n.breach/poly.areas(blocks))
+
+
+#proj4string(crime_df) <- crs(NYC_nb)
+
+#tmp<-poly.counts(pts=crime_df,polys = NYC_nb)
+
+
+#These two line are the main thing that counts the point
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#income and education and census tract
+
+
+
+
+
+
+
+
+
+
+#graph
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
