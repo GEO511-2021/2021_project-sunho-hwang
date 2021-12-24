@@ -28,71 +28,227 @@ library(maps)
 library(tidycensus)
 library(tidyverse)
 library(kableExtra)
+library(sf)
 #knitr::opts_chunk$set(cache=TRUE)  # cache the results for quick compiling
 ```
 
-## Download and clean all required data
+
 ```{r}
 
 #register your api key
-#use personal account not ub gmail account
-register_google("")
+
 #census api key
-census_api_key("")
+census_api_key("de66b80e57fd740d87d1af03c5c306086b4f17fa")
+
+#1. Rain Barrel Count per polygon
+
+#download the rain barrel 2015 shapefile 
+
+rb_2015<-st_read("C:/R_Project/RB1516/2015_completed_RBinstall.shp")
+
+#pipe dataset to tibble
+
+rb_2015_t = st_read("C:/R_Project/RB1516/2015_completed_RBinstall.shp") %>% as_tibble()
+
+head(rb_2015_t)
+
+#convert rb_2015 data in sf object
+
+rb_sf <- rb_2015 %>%
+  mutate_at(vars("Longitude", "Latitude"), as.numeric) %>%  
+  st_as_sf(
+    coords = c("Longitude", "Latitude"),
+    agr = "constant",
+    crs = 2262,        
+    stringsAsFactors = FALSE,
+    remove = TRUE)                 
+                 
+#census tract data, convert to same crs as rb data to move on spatial join
+
+census_tract<-st_read("C:/R_Project/2015_CensusTract")
+
+head(census_tract)                
+                 
+ct_new=st_transform(census_tract,st_crs(rb_sf))                 
+                 
+#join rain barrel in tract to count the rain barrels
+
+rb_in_tract <- st_join(rb_sf, ct_new , join = st_within)
+                 
+#count rb's in tract
+
+rb_tract_count <- count(as_tibble(rb_in_tract), GEOID) %>%
+  print()
+
+tract_rb_sf <- left_join(ct_new, rb_tract_count) %>%
+  print()
+
+tract_rb_sf
+                 
+map<-tract_rb_sf %>%
+    ggplot() +
+    geom_sf(aes(fill=n)) +
+    scale_fill_gradient(low='red',high='green') +
+    labs(title = 'Rain Barrels per Census Tract',
+         fill = 'n',
+         x=NULL, y=NULL) +  
+    theme(axis.text.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank()) 
+
+#Let's add education, income data and limit the map to Erie County
+
+#Get the Census Data
+
+View(load_variables(2015, "acs5", cache = TRUE))
 
 
+get_vars = c('B07011_001',paste('B15003_',sprintf('%03d',c(1,17:25)),sep=''))
 
+names(get_vars) =  c('income','all','hs','ged','some0','some1','as','bs','ms','prof','phd')
 
-#2 educational attainment
+#limit to Erie County
 
-#get_acs() will be used.
+acs_data = get_acs(geography = 'tract', variables = get_vars,state='NY',county='Erie',geometry='TRUE')
 
-#search for variables
-v1 <- load_variables(2019, "acs5", cache = TRUE)
-#View(v1)
-#variable:B15003_001: total:educational attainment for population 25 years and older
-#variable: B15003_001,  B15003_017 to B15003_025 will be used
+as_tibble(acs_data)
 
-#test
-
-#educational attainment data only for total
-ed<-get_acs(geography="tract",variables=c(educationtotal="B15003_001"),county="Erie",state="NY",year=2019)
-
-#view(ed)
-
-#We need to identify the variables we are willing to use and name it again to make it understandable.
-#B19019_001 will be later used for median income. This represents the total of median household income by household size. 
-
-get_vars = c('B19019_001',paste('B15003_',sprintf('%03d',c(1,17:25)),sep=''))
-names(get_vars) =  c('income','all','hs','ged','someco1','someco2',
-                     'as','bac','mas','prof','doc')
-
-edu_data = get_acs(geography = 'tract', variables = get_vars,
-                   state='NY',county='Erie',geometry='TRUE')
-
-#did I use the 5 year acs table? double check? yes
-
-as_tibble(edu_data) %>% select(-geometry)
-
-#classify education attainment to at least hight school and at least bachelor degree
-
-library(tidyverse)                     
-acs_spread = edu_data %>% 
-    select(-moe) %>% 
+acs_spread = acs_data %>% 
+    dplyr::select(-moe) %>% 
     spread(key=variable,value=estimate) %>%
-    mutate('atleast_hs' = (hs + ged+ someco1 + someco2 + as + bac + mas + prof + doc) / all,
-           'atleast_bs' = (bac + mas + prof + doc) / all) %>%
-    select(GEOID,income,atleast_hs,atleast_bs)
+    mutate('atleast_hs' = (hs + some0 + some1 + as + bs + ms + prof + phd) / all,
+           'atleast_bs' = (bs + ms + prof + phd) / all,'atleast_ms' = (ms + prof + phd) / all) %>%
+    dplyr::select(GEOID,income,atleast_hs,atleast_bs,atleast_ms)
+
+#join acs data and rb data
+
+#Census tract boundaries
+
+#use GEOID
+
+thm = theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+          axis.text.y = element_blank(), axis.ticks.y = element_blank())
+
+
+#convert to same crs
+
+acs_data_new=st_transform(acs_data,st_crs(tract_rb_sf))
+
+#census tract boundary
+
+tr = acs_data_new %>%
+    st_intersection(tract_rb_sf) %>%
+    group_by(NAME) %>%
+    summarize() %>%
+    ggplot() +
+    labs(title = 'Census Tracts') + thm +
+    geom_sf()
+
+tr
+
+#georeference
+
+nb = st_read("C:/R_Project/ny_nb") %>%
+    filter(City == 'Buffalo') %>%
+    mutate(NEIGHBORHOOD = str_to_upper(Name)) %>%
+    dplyr::select(NEIGHBORHOOD)
+
+#same crs
+
+nb_new=st_transform(nb_new,st_crs(tract_rb_sf))
+
+#join
+
+nb_final <- nb_new %>% st_join(tract_rb_sf,by='geometry') %>%dplyr::select(-moe) 
+
+#I have everything on graph but have to spread
+
+acs_spread_new = nb_final %>% 
+    spread(key=variable,value=estimate) %>%
+    mutate('atleast_hs' = (hs + some0 + some1 + as + bs + ms + prof + phd) / all,
+           'atleast_bs' = (bs + ms + prof + phd) / all,'atleast_ms' = (ms + prof + phd) / all) %>%
+    dplyr::select(geometry,GEOID.y,income,atleast_hs,atleast_bs,atleast_ms,n)
+
+acs_spread_new[is.na(acs_spread_new)] <- 0
+
+#rb map
+
+rb_map<-acs_spread_new %>%
+    ggplot() +
+    geom_sf(aes(fill=n)) +
+    scale_fill_gradient(low='red',high='green') +
+    labs(title = 'Rain Barrel map',
+         fill = 'n',
+         x=NULL, y=NULL) +  
+    theme(axis.text.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank()) 
+
+rb_map
+
+#income_map
+
+income_map = acs_spread_new %>% ggplot() + thm +
+    labs(fill = 'Median\nIncome ($)') +
+    scale_fill_gradient(low='red',high='green') +
+    geom_sf(aes(fill=income))
+
+
+income_map
+
+#education_map
+
+education_map_bs = acs_spread_new %>% ggplot() + thm +
+    labs(fill = 'Education Attainment at least bachelor degree') +
+    scale_fill_gradient(low='red',high='green') +
+    geom_sf(aes(fill=atleast_bs))
+
+
+education_map_bs
+
+#scatterplot
+
+scatterplot <- acs_spread_new %>%
+    gather(key = 'var', value = 'val', income, atleast_bs) %>%
+    mutate(var = recode(var, income = 'Income', atleast_bs = '% Bachelors')) %>%
+    mutate(var = factor(var, levels=c('Income', '% Bachelors'))) %>%
+    ggplot(aes(x = val, y = n)) +
+    labs(y = 'rain barrels (n)',
+         title = 'Income, education, and rain barrels') +
+    theme(axis.title.x = element_blank()) +
+    geom_point() +
+    geom_smooth(method=lm) +
+    facet_wrap(~var, ncol=2, scales='free')
+
+
+scatterplot
 
 
 
-#Continuing..
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ```
 
 
-Add any additional processing steps here.
+
 
 # Results
 
@@ -113,278 +269,12 @@ Clear summary adequately describing the results and putting them in context. Dis
 
 All sources are cited in a consistent manner
 
+#https://mattherman.info/blog/point-in-poly/
+#https://kenkellner.com/blog/buffalo-recycle-part2.html
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-#20211208 new
-#download the rain barrel 2015 shapefile 
-
-library(sf)
-
-rb_2015<-st_read("C:/R_Project/RB1516/2015_completed_RBinstall.shp")
-
-
-#Projected CRS: NAD83 / New York West (ftUS)
-
-
-
-#pipe dataset to tibble
-
-library(tidyverse)
-
-rb_2015_t = st_read("C:/R_Project/RB1516/2015_completed_RBinstall.shp") %>% as_tibble()
-
-head(rb_2015_t)
-
-#tidy data
-#add count
-
-#new packages
-library(tidycensus)
-library(tidyverse)
-library(sf);library(ggplot2);library(raster) ;library(sp);library(GISTools)
-library(dplyr)
-library(rgdal)
-library(magrittr)
-library(lubridate)#date
-library(leaflet)
-library(spdep);library(rgdal);
-library(viridis)
-library(mapview)
-library(RColorBrewer)
-library(rgeos)
-
-
-
-
-
-
-
-
-
-
-
-
-
-#rb_2015_t%>%class() is tibble
-#rb_2015 is sf
-
-rb_2015%>%class()
-
-#census data
-#census_tract is sf
-
-census_tract<-st_read("C:/R_Project/2015_CensusTract")
-
-head(census_tract)
-
-census_tract%>%class()
-
-#count rb
-
-rb_2015%>%class()
-
-census_tract%>%class()
-
-#rb_2015_sp <-sp
-#rb_2015_t <-tbl
-
-rb_2015_df<-rb_2015_sp%>%as_tibble()
-
-coordinates(rb_2015_df) <- ~ Longitude+ Latitude
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-head(rb_2015_t)
-view(rb_2015_t)
-
-#https://gis.stackexchange.com/questions/110117/counting-number-of-points-in-polygon-using-r
-
-
-
-library("raster")
-
-library("sp")
-
-
-
-class(rb_2015)
-
-#convert sf to sp
-
-census_tract <-as(st_geometry(census_tract), "Spatial")
-
-
-
-#proj4string(rb_2015_sp)
-
-#Warning message:
-#In proj4string(rb_2015_sp) :
-#CRS object has comment, which is lost in output
-
-#https://cran.r-project.org/web/packages/sp/vignettes/CRS_warnings.html
-
-
-
-slot(rb_2015_df, "proj4string")
-
-slot(census_tract,"proj4string")
-
-slot(rb_2015_sp, "proj4string") <- crs(census_tract)
-
-
-tmp<-poly.counts(pts=rb_2015_t,polys = census_tract)
-
-#setNames(tmp,  NYC_nb@data$NAME_1)
-
-tmp_df <- data.frame(id = names(tmp), count = tmp)
-
-
-census_tract$count<- tmp
-
-mapview::mapview(census_tract ,zcol = "count")
-
-
-head(tmp_df)
-
-
-
-
-
-
-
-#census_tract only has GEOID No FIPs
-
-#convert latitude longitude to census tract or GEOID or fips
-
-#https://shiandy.com/post/2020/11/02/mapping-lat-long-to-fips/
-#reference:https://gis.stackexchange.com/questions/21533/api-to-reverse-geocode-latitude-longitude-to-census-tract
-
-
-
-n <- 1e5
-set.seed(7477263)
-county_bbox <- st_bbox(census_tracts)
-# randomly sample longitude and latitude from bounding box
-latlong_dat <- data.frame(id = seq_len(n),
-                          x = rnorm(n),
-                          Longitude = runif(n, min = county_bbox["xmin"],
-                                            max = county_bbox["xmax"]),
-                          Latitude = runif(n, min = county_bbox["ymin"],
-                                            max = county_bbox["ymax"]))
-
-
-
-latlong_sf <- latlong_dat %>%
-  filter(!is.na(Latitude), !is.na(Longitude)) %>%
-  st_as_sf(coords = c("Longitude", "Latitude"), crs = st_crs(census_tract))
-
-
-
-system.time({
-  intersected <- st_intersects(latlong_sf, census_tract)
-})
-
-
-latlong_final <- latlong_sf %>%
-  mutate(intersection = as.integer(intersected),
-         fips = if_else(is.na(intersection), "",
-                        census_tract$GEOID[intersection]))
-
-head(latlong_final)
-
-census_tract %>%
-  filter(startsWith(GEOID, "36029")) %>%
-  select(geometry) %>%
-  plot()
-latlong_final %>%
-  filter(fips == "36013036700") %>%
-  select(geometry) %>%
-  slice_sample(n = 10) %>%
-  plot(add = TRUE, reset = FALSE, pch = 16, col = "red")
-
-
-#count rain barrels per census tract
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# How many breaches of peace in each census block?
-#n.breach = poly.counts(breach,blocks)
-# Compute densities and map them
-#choropleth(blocks,n.breach/poly.areas(blocks))
-
-
-#proj4string(crime_df) <- crs(NYC_nb)
-
-#tmp<-poly.counts(pts=crime_df,polys = NYC_nb)
-
-
-#These two line are the main thing that counts the point
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#income and education and census tract
-
-
-
-
-
-
-
-
-
-
-#graph
 
 
 
