@@ -18,7 +18,6 @@ The rain barrel data is from Buffalo Sewer Authority, the education,income and c
 # Materials and methods
 ```{r, message=F, warning=F}
 library(acs)
-install.packages("base")
 library(choroplethr)
 library(ggplot2)
 library(choroplethrMaps)
@@ -51,7 +50,7 @@ rb_2015<-st_read("C:/R_Project/RB1516/2015_completed_RBinstall.shp")
 
 rb_2015_t = st_read("C:/R_Project/RB1516/2015_completed_RBinstall.shp") %>% as_tibble()
 
-head(rb_2015_t)
+view(rb_2015_t)
 
 #convert rb_2015 data in sf object
 
@@ -84,7 +83,7 @@ rb_tract_count <- count(as_tibble(rb_in_tract), GEOID) %>%
 tract_rb_sf <- left_join(ct_new, rb_tract_count) %>%
   print()
 
-tract_rb_sf
+class(tract_rb_sf)
                  
 map<-tract_rb_sf %>%
     ggplot() +
@@ -98,6 +97,9 @@ map<-tract_rb_sf %>%
           axis.text.y = element_blank(),
           axis.ticks.y = element_blank()) 
 
+map
+
+
 #Let's add education, income data and limit the map to Erie County
 
 #Get the Census Data
@@ -109,20 +111,26 @@ get_vars = c('B07011_001',paste('B15003_',sprintf('%03d',c(1,17:25)),sep=''))
 
 names(get_vars) =  c('income','all','hs','ged','some0','some1','as','bs','ms','prof','phd')
 
+
+
 #limit to Erie County
 
 acs_data = get_acs(geography = 'tract', variables = get_vars,state='NY',county='Erie',geometry='TRUE')
 
 as_tibble(acs_data)
 
-acs_spread = acs_data %>% 
-    dplyr::select(-moe) %>% 
-    spread(key=variable,value=estimate) %>%
-    mutate('atleast_hs' = (hs + some0 + some1 + as + bs + ms + prof + phd) / all,
-           'atleast_bs' = (bs + ms + prof + phd) / all,'atleast_ms' = (ms + prof + phd) / all) %>%
-    dplyr::select(GEOID,income,atleast_hs,atleast_bs,atleast_ms)
+view(acs_data)
 
-#join acs data and rb data
+
+acs_spread = acs_data %>% 
+    select(-moe) %>% 
+    spread(key=variable,value=estimate) %>%
+    mutate('atleast_bs' = (bs + ms + prof + phd) / all) %>%
+    dplyr::select(GEOID,income,atleast_bs)
+
+
+#join acs_spread data and rb_sf data
+
 
 #Census tract boundaries
 
@@ -134,19 +142,17 @@ thm = theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
 
 #convert to same crs
 
-acs_data_new=st_transform(acs_data,st_crs(tract_rb_sf))
+acs_spread_new=st_transform(acs_spread,st_crs(tract_rb_sf))
+
+head(acs_spread_new)
 
 #census tract boundary
+#tr is df of acs_spread_data and rain barrel number,so final result for this section
 
-tr = acs_data_new %>%
-    st_intersection(tract_rb_sf) %>%
-    group_by(NAME) %>%
-    summarize() %>%
-    ggplot() +
-    labs(title = 'Census Tracts') + thm +
-    geom_sf()
+tr = acs_spread_new %>%
+    st_intersection(tract_rb_sf)
 
-tr
+head(tr)
 
 #georeference
 #Data from Zillow
@@ -158,25 +164,25 @@ nb = st_read("C:/R_Project/ny_nb") %>%
 
 #same crs
 
-nb_new=st_transform(nb_new,st_crs(tract_rb_sf))
+nb_new=st_transform(nb,st_crs(tract_rb_sf))
+
+view(nb_new)
 
 #join
 
-nb_final <- nb_new %>% st_join(tract_rb_sf,by='geometry') %>%dplyr::select(-moe) 
+nb_final <- nb_new %>% st_join(tr,by='geometry') 
 
-#I have everything on graph but have to spread
+nb_final[is.na(nb_final)] <- 0
 
-acs_spread_new = nb_final %>% 
-    spread(key=variable,value=estimate) %>%
-    mutate('atleast_hs' = (hs + some0 + some1 + as + bs + ms + prof + phd) / all,
-           'atleast_bs' = (bs + ms + prof + phd) / all,'atleast_ms' = (ms + prof + phd) / all) %>%
-    dplyr::select(geometry,GEOID.y,income,atleast_hs,atleast_bs,atleast_ms,n)
+view(nb_final)
 
-acs_spread_new[is.na(acs_spread_new)] <- 0
+#Final result to map is nb_final!
+
 
 #rb map
 
-rb_map<-acs_spread_new %>%
+
+rb_map<-nb_final %>%
     ggplot() +
     geom_sf(aes(fill=n)) +
     scale_fill_gradient(low='red',high='green') +
@@ -192,7 +198,7 @@ rb_map
 
 #income_map
 
-income_map = acs_spread_new %>% ggplot() + thm +
+income_map = nb_final %>% ggplot() + thm +
     labs(fill = 'Median\nIncome ($)') +
     scale_fill_gradient(low='red',high='green') +
     geom_sf(aes(fill=income))
@@ -202,7 +208,7 @@ income_map
 
 #education_map
 
-education_map_bs = acs_spread_new %>% ggplot() + thm +
+education_map_bs = nb_final %>% ggplot() + thm +
     labs(fill = 'Education Attainment at least bachelor degree') +
     scale_fill_gradient(low='red',high='green') +
     geom_sf(aes(fill=atleast_bs))
@@ -212,7 +218,7 @@ education_map_bs
 
 #scatterplot
 
-scatterplot <- acs_spread_new %>%
+scatterplot <- nb_final %>%
     gather(key = 'var', value = 'val', income, atleast_bs) %>%
     mutate(var = recode(var, income = 'Income', atleast_bs = '% Bachelors')) %>%
     mutate(var = factor(var, levels=c('Income', '% Bachelors'))) %>%
