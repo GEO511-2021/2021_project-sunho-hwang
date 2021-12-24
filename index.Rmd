@@ -10,7 +10,8 @@ output: html_document
 
 Due to global warming, one of the difficulties that the urban environment face is the increase of precipitation. There is a chance that this will lead to water pollution as the stormwater that runs through the urban impervious surface collects pollutants and enters the sewer system. There has been continuous effort to implement green infrastructure to adapt to this environmental change. However there are certain limits because this involves the voluntary participation of individual households. This study will help understand the motivation of the participants of the past rain barrel project and help guide environmental organizations to plan how to increase participation.
 
-This project will analyze the motivation of households participating in the rain barrel project by comparing contributing factors which are the education attainment and median income at the census tract level. The education attainment and income of the people participating in this project will be represented as a map. Then the shapefile of the rain barrels will be overlapped in order to analyze the demographic characteristic of households participating in the project. 
+This project will analyze the motivation of households participating in the rain barrel project by comparing contributing factors which are the education attainment and median income at the census tract level. The rain barrels installed, education attainment and income of the people participating in this project will be represented as a map. Then scatterplots will be observed to see the relationship between the factors.
+The rain barrel data is from Buffalo Sewer Authority, the education,income and census tract data is from Census Bureau, and the data used for georeferencing was attained from Zillow.
 
 
 
@@ -148,6 +149,7 @@ tr = acs_data_new %>%
 tr
 
 #georeference
+#Data from Zillow
 
 nb = st_read("C:/R_Project/ny_nb") %>%
     filter(City == 'Buffalo') %>%
@@ -252,25 +254,51 @@ scatterplot
 
 # Results
 
-[~200 words]
+<Rain Barrel and Education>
 
-Tables and figures (maps and other graphics) are carefully planned to convey the results of your analysis. Intense exploration and evidence of many trials and failures. The author looked at the data in many different ways before coming to the final presentation of the data.
+Comparing the rain barrel map and education map, the areas that have a higher rate of bachelor degree attainment show that more rain barrels are installed in the area. However, the exceptional case is that the southern part of the city of Buffalo has a lower rate of bachelor degree attainment while it has a higher number of rain barrels installed to the areas around.
 
-Show tables, plots, etc. and describe them.
+<Rain Barrel Installment and Income>
+
+Comparing the rain barrel map and the income map, the areas with the rain barrel installed showed a mix of income levels compared to the education map. Areas with higher income did participate but also areas with a lower income level showed a high rain barrel installment , compared to the other areas in the city of Buffalo too.
+
+<Education vs Income>
+
+Education attainment seems like it has a higher relation with the rain barrel installment but more confirmation can be done with the scatterplot.
+
+<Scatterplot>
+
+Unfortunately, the scatterplot shows that the rain barrels, income, and education level do not show a certain pattern. The Income and rain barrel scatterplot shows that the middle or lower income has a higher participation rate than the higher income areas. The education attainment scatterplot shows that the educational attainment does not have a relation with the rain barrel installment.
+
+
 
 
 # Conclusions
 
-[~200 words]
+The map showed that the education level and rain barrel installment showed a relationship, while the income level and rain barrel installment showed a smaller relation. However, the scatterplot showed that there is not a significant relationship between the education level, income level and rain barrel installment. In order to explain the discrepancy between the map and the scatterplot further research should be done about the rain barrel installment process. This is because the installment might took place considering certain areas. Questions about the advertisement area sent and the project area, should be answered in order to lead to an accurate study.
 
-Clear summary adequately describing the results and putting them in context. Discussion of further questions and ways to continue investigation.
 
 # References
+Baptiste, A., Foley, c., Smardon R,2014.Understanding urban neighborhood differences in willingness toimplement green infrastructure measures: a case study ofSyracuse, NY.Landscape and Planning. 136.1-12, DOI:http:://dx.doi.org/10.1016/j.landurbplan.2014.11.0120169-2046/
 
-All sources are cited in a consistent manner
+Buffalo Sewer Authority.2018. Raincheck 1.0.
+URL:https://raincheckbuffalo.org/app/uploads/2018/05/Buffalo_Sewer_Authority_RainCheck1.0_Spring2018_SinglesReduced.pdf (accessed 12/24/2021)
 
-#https://mattherman.info/blog/point-in-poly/
-#https://kenkellner.com/blog/buffalo-recycle-part2.html
+Buffalo Recycle part2.
+URL:#https://kenkellner.com/blog/buffalo-recycle-part2.html(accessed 12/ 24/2021) 
+
+National Climate Assessment.2014. Climate Change Impacts in the United States.
+URL:http://nca2014.globalchange.gov/report/our-changing-climate/introduction (accessed 12/ 24/2021)  
+
+Point in Poly.
+URL:https://mattherman.info/blog/point-in-poly/(accessed 12/ 24/2021)  
+
+Zillow.
+URL:https://www.zillowstatic.com/static-neighborhood-boundaries/LATEST/static-neighborhood-boundaries/shp/ZillowNeighborhoods-NY.zip (accessed 12/24/2021)
+
+
+
+
 
 
 
