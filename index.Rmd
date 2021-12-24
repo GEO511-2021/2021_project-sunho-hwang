@@ -1,105 +1,338 @@
 ---
-title: "My Final Project Template"
-author: Your name here
-subtitle: Subtitle here if desired
+title: "Who is into Green Infrastructure"
+author: "Sun Ho Hwang"
+subtitle: Motivation of Green Infrastructure Participation
+output: html_document
 ---
+
 
 # Introduction
 
-[~ 200 words]
+Due to global warming, one of the difficulties that the urban environment face is the increase of precipitation. There is a chance that this will lead to water pollution as the stormwater that runs through the urban impervious surface collects pollutants and enters the sewer system. There has been continuous effort to implement green infrastructure to adapt to this environmental change. However there are certain limits because this involves the voluntary participation of individual households. This study will help understand the motivation of the participants of the past rain barrel project and help guide environmental organizations to plan how to increase participation.
 
-Clearly stated background and questions / hypotheses / problems being addressed. Sets up the analysis in an interesting and compelling way.
+This project will analyze the motivation of households participating in the rain barrel project by comparing contributing factors which are the education attainment and median income at the census tract level. The rain barrels installed, education attainment and income of the people participating in this project will be represented as a map. Then scatterplots will be observed to see the relationship between the factors.
+The rain barrel data is from Buffalo Sewer Authority, the education,income and census tract data is from Census Bureau, and the data used for georeferencing was attained from Zillow.
+
+
 
 # Materials and methods
-
-[~ 200 words]
-
-Narrative: Clear narrative description of the data sources and methods. Includes data from at least two sources that were integrated / merged in R.
-
-Code: The code associated with the project is well organized and easy to follow. Demonstrates mastery of R graphics and functions.
-
-Data: The underlying data are publicly accessible via the web and downloaded/accessed within the Rmd script. If you want to use your own data, you must make it available on a website (e.g. Figshare) so that others are able to re-run your code.
-
-You can do bullets like this:
-
-* The first most important thing
-* The second most important thing
-* The third most important thing
-
-You can do numbers like this:
-
-1. The first most important thing
-2. The second most important thing
-3. The third most important thing
-
-See [http://rmarkdown.rstudio.com/](http://rmarkdown.rstudio.com/) for all the amazing things you can do.
-
-
-Here's my first code chunk.
-```{r}
-1+2
-```
-
-Load any required packages in a code chunk (you may need to install some packages):
-
 ```{r, message=F, warning=F}
+library(acs)
+library(choroplethr)
+library(ggplot2)
+library(choroplethrMaps)
+library(ggmap)
+#install.packages("mapproj")
+library(mapproj)
+library(maps)
+library(tidycensus)
 library(tidyverse)
-library(leaflet)
 library(kableExtra)
-knitr::opts_chunk$set(cache=TRUE)  # cache the results for quick compiling
+library(sf)
+#knitr::opts_chunk$set(cache=TRUE)  # cache the results for quick compiling
 ```
 
-## Download and clean all required data
+
 ```{r}
-n=20
-data=data.frame(x=runif(n,-180,180),
-                y=runif(n,-60,60),
-                size = runif(n, 5, 20),
-                category = factor(
-                  sample(letters[1:5], n, replace = TRUE)
-                  ),
-                value = rnorm(n))
+
+#register your api key
+
+#census api key
+census_api_key("de66b80e57fd740d87d1af03c5c306086b4f17fa")
+
+#1. Rain Barrel Count per polygon
+
+#download the rain barrel 2015 shapefile 
+
+rb_2015<-st_read("C:/R_Project/RB1516/2015_completed_RBinstall.shp")
+
+#pipe dataset to tibble
+
+rb_2015_t = st_read("C:/R_Project/RB1516/2015_completed_RBinstall.shp") %>% as_tibble()
+
+view(rb_2015_t)
+
+#convert rb_2015 data in sf object
+
+rb_sf <- rb_2015 %>%
+  mutate_at(vars("Longitude", "Latitude"), as.numeric) %>%  
+  st_as_sf(
+    coords = c("Longitude", "Latitude"),
+    agr = "constant",
+    crs = 2262,        
+    stringsAsFactors = FALSE,
+    remove = TRUE)                 
+                 
+#census tract data, convert to same crs as rb data to move on spatial join
+
+census_tract<-st_read("C:/R_Project/2015_CensusTract")
+
+head(census_tract)                
+                 
+ct_new=st_transform(census_tract,st_crs(rb_sf))                 
+                 
+#join rain barrel in tract to count the rain barrels
+
+rb_in_tract <- st_join(rb_sf, ct_new , join = st_within)
+                 
+#count rb's in tract
+
+rb_tract_count <- count(as_tibble(rb_in_tract), GEOID) %>%
+  print()
+
+tract_rb_sf <- left_join(ct_new, rb_tract_count) %>%
+  print()
+
+class(tract_rb_sf)
+                 
+map<-tract_rb_sf %>%
+    ggplot() +
+    geom_sf(aes(fill=n)) +
+    scale_fill_gradient(low='red',high='green') +
+    labs(title = 'Rain Barrels per Census Tract',
+         fill = 'n',
+         x=NULL, y=NULL) +  
+    theme(axis.text.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank()) 
+
+map
+
+
+#Let's add education, income data and limit the map to Erie County
+
+#Get the Census Data
+
+View(load_variables(2015, "acs5", cache = TRUE))
+
+
+get_vars = c('B07011_001',paste('B15003_',sprintf('%03d',c(1,17:25)),sep=''))
+
+names(get_vars) =  c('income','all','hs','ged','some0','some1','as','bs','ms','prof','phd')
+
+
+
+#limit to Erie County
+
+acs_data = get_acs(geography = 'tract', variables = get_vars,state='NY',county='Erie',geometry='TRUE')
+
+as_tibble(acs_data)
+
+view(acs_data)
+
+
+acs_spread = acs_data %>% 
+    select(-moe) %>% 
+    spread(key=variable,value=estimate) %>%
+    mutate('atleast_bs' = (bs + ms + prof + phd) / all) %>%
+    dplyr::select(GEOID,income,atleast_bs)
+
+
+#join acs_spread data and rb_sf data
+
+
+#Census tract boundaries
+
+#use GEOID
+
+thm = theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+          axis.text.y = element_blank(), axis.ticks.y = element_blank())
+
+
+#convert to same crs
+
+acs_spread_new=st_transform(acs_spread,st_crs(tract_rb_sf))
+
+head(acs_spread_new)
+
+#census tract boundary
+#tr is df of acs_spread_data and rain barrel number,so final result for this section
+
+tr = acs_spread_new %>%
+    st_intersection(tract_rb_sf)
+
+head(tr)
+
+#georeference
+#Data from Zillow
+
+nb = st_read("C:/R_Project/ny_nb") %>%
+    filter(City == 'Buffalo') %>%
+    mutate(NEIGHBORHOOD = str_to_upper(Name)) %>%
+    dplyr::select(NEIGHBORHOOD)
+
+#same crs
+
+nb_new=st_transform(nb,st_crs(tract_rb_sf))
+
+view(nb_new)
+
+#join
+
+nb_final <- nb_new %>% st_join(tr,by='geometry') 
+
+nb_final[is.na(nb_final)] <- 0
+
+view(nb_final)
+
+#Final result to map is nb_final!
+
+
+#rb map
+
+
+rb_map<-nb_final %>%
+    ggplot() +
+    geom_sf(aes(fill=n)) +
+    scale_fill_gradient(low='red',high='green') +
+    labs(title = 'Rain Barrel map',
+         fill = 'n',
+         x=NULL, y=NULL) +  
+    theme(axis.text.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank()) 
+
+rb_map
+
+#income_map
+
+income_map = nb_final %>% ggplot() + thm +
+    labs(fill = 'Median\nIncome ($)') +
+    scale_fill_gradient(low='red',high='green') +
+    geom_sf(aes(fill=income))
+
+
+income_map
+
+#education_map
+
+education_map_bs = nb_final %>% ggplot() + thm +
+    labs(fill = 'Education Attainment at least bachelor degree') +
+    scale_fill_gradient(low='red',high='green') +
+    geom_sf(aes(fill=atleast_bs))
+
+
+education_map_bs
+
+#scatterplot
+
+scatterplot <- nb_final %>%
+    gather(key = 'var', value = 'val', income, atleast_bs) %>%
+    mutate(var = recode(var, income = 'Income', atleast_bs = '% Bachelors')) %>%
+    mutate(var = factor(var, levels=c('Income', '% Bachelors'))) %>%
+    ggplot(aes(x = val, y = n)) +
+    labs(y = 'rain barrels (n)',
+         title = 'Income, education, and rain barrels') +
+    theme(axis.title.x = element_blank()) +
+    geom_point() +
+    geom_smooth(method=lm) +
+    facet_wrap(~var, ncol=2, scales='free')
+
+
+scatterplot
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ```
 
-```{r, results='asis'}
-data %>% 
-  slice(1:10) %>% #show only 1:n rows
-  kable(digits=2,align="c")%>% #make table and round to two digits
-  kable_styling(bootstrap_options = 
-                  c("striped", "hover", "condensed", "responsive")) #apply other formatting
-```
 
-Add any additional processing steps here.
+
 
 # Results
 
-[~200 words]
+<Rain Barrel and Education>
 
-Tables and figures (maps and other graphics) are carefully planned to convey the results of your analysis. Intense exploration and evidence of many trials and failures. The author looked at the data in many different ways before coming to the final presentation of the data.
+Comparing the rain barrel map and education map, the areas that have a higher rate of bachelor degree attainment show that more rain barrels are installed in the area. However, the exceptional case is that the southern part of the city of Buffalo has a lower rate of bachelor degree attainment while it has a higher number of rain barrels installed to the areas around.
 
-Show tables, plots, etc. and describe them.
+<Rain Barrel Installment and Income>
 
-```{r, fig.width=6, fig.height=3, fig.cap="Map of completely random data"}
-m <- leaflet(data) %>% 
-  addTiles() %>% 
-  addCircleMarkers(~x, ~y, radius = ~size,color = ~as.factor(category)) %>% 
-  addPopups(~x[2], ~y[2], "Random popup")
-m  # a map with the default OSM tile layer
-```
+Comparing the rain barrel map and the income map, the areas with the rain barrel installed showed a mix of income levels compared to the education map. Areas with higher income did participate but also areas with a lower income level showed a high rain barrel installment , compared to the other areas in the city of Buffalo too.
+
+<Education vs Income>
+
+Education attainment seems like it has a higher relation with the rain barrel installment but more confirmation can be done with the scatterplot.
+
+<Scatterplot>
+
+Unfortunately, the scatterplot shows that the rain barrels, income, and education level do not show a certain pattern. The Income and rain barrel scatterplot shows that the middle or lower income has a higher participation rate than the higher income areas. The education attainment scatterplot shows that the educational attainment does not have a relation with the rain barrel installment.
 
 
-```{r}
-data %>% 
-  ggplot(aes(x=x,y=y,col=category))+
-  geom_point()
-```
+
 
 # Conclusions
 
-[~200 words]
+The map showed that the education level and rain barrel installment showed a relationship, while the income level and rain barrel installment showed a smaller relation. However, the scatterplot showed that there is not a significant relationship between the education level, income level and rain barrel installment. In order to explain the discrepancy between the map and the scatterplot further research should be done about the rain barrel installment process. This is because the installment might took place considering certain areas. Questions about the advertisement area sent and the project area, should be answered in order to lead to an accurate study.
 
-Clear summary adequately describing the results and putting them in context. Discussion of further questions and ways to continue investigation.
 
 # References
+Baptiste, A., Foley, c., Smardon R,2014.Understanding urban neighborhood differences in willingness toimplement green infrastructure measures: a case study ofSyracuse, NY.Landscape and Planning. 136.1-12, DOI:http:://dx.doi.org/10.1016/j.landurbplan.2014.11.0120169-2046/
 
-All sources are cited in a consistent manner
+Buffalo Sewer Authority.2018. Raincheck 1.0.
+URL:https://raincheckbuffalo.org/app/uploads/2018/05/Buffalo_Sewer_Authority_RainCheck1.0_Spring2018_SinglesReduced.pdf (accessed 12/24/2021)
+
+Buffalo Recycle part2.
+URL:#https://kenkellner.com/blog/buffalo-recycle-part2.html(accessed 12/ 24/2021) 
+
+National Climate Assessment.2014. Climate Change Impacts in the United States.
+URL:http://nca2014.globalchange.gov/report/our-changing-climate/introduction (accessed 12/ 24/2021)  
+
+Point in Poly.
+URL:https://mattherman.info/blog/point-in-poly/(accessed 12/ 24/2021)  
+
+Zillow.
+URL:https://www.zillowstatic.com/static-neighborhood-boundaries/LATEST/static-neighborhood-boundaries/shp/ZillowNeighborhoods-NY.zip (accessed 12/24/2021)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
